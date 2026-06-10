@@ -582,6 +582,16 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
       queryLength: text.length,
       transcriptLengthChars: transcriptBufferRef.current.length,
     });
+
+    if (typeof pendo !== 'undefined') {
+      pendo.trackAgent("prompt", {
+        agentId: "rFslkhcC7MlMOLmhB17JW2pCoxA",
+        conversationId: sessionId ?? userMsg.id,
+        messageId: userMsg.id,
+        content: text,
+      });
+    }
+
     try {
       const apiKey = getSetting('OPENROUTER_API_KEY');
       if (!apiKey) throw new Error('OpenRouter API key not configured. Go to Settings → AI Services.');
@@ -597,14 +607,24 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
         ],
         'live-chat',
       );
-      setChatMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'ai', text: answer, timestamp: Date.now() }]);
+      const responseId = crypto.randomUUID();
+      setChatMessages(prev => [...prev, { id: responseId, role: 'ai', text: answer, timestamp: Date.now() }]);
+
+      if (typeof pendo !== 'undefined') {
+        pendo.trackAgent("agent_response", {
+          agentId: "rFslkhcC7MlMOLmhB17JW2pCoxA",
+          conversationId: sessionId ?? userMsg.id,
+          messageId: responseId,
+          content: answer,
+        });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setChatMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'ai', text: `Error: ${msg}`, timestamp: Date.now() }]);
     } finally {
       setIsChatLoading(false);
     }
-  }, []);
+  }, [sessionId]);
 
   const approveEvent = (id: string) => {
     const event = aiEvents.find(e => e.id === id);

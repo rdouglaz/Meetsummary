@@ -454,7 +454,7 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
                     )}
                   </TabsContent>
                   <TabsContent value="chat" className="flex-1 mt-0">
-                    <AskAIPanel meetingTitle={meeting.title} />
+                    <AskAIPanel meetingTitle={meeting.title} meetingId={meeting.id} />
                   </TabsContent>
                 </Tabs>
               </div>
@@ -530,7 +530,7 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
                   )}
                 </TabsContent>
                 <TabsContent value="chat" className="flex-1 mt-0">
-                  <AskAIPanel meetingTitle={meeting.title} />
+                  <AskAIPanel meetingTitle={meeting.title} meetingId={meeting.id} />
                 </TabsContent>
               </Tabs>
             </div>
@@ -1005,16 +1005,18 @@ function EmptySummary({ status }: { status: string }) {
   );
 }
 
-function AskAIPanel({ meetingTitle }: { meetingTitle: string }) {
+function AskAIPanel({ meetingTitle, meetingId }: { meetingTitle: string; meetingId: string }) {
   const [messages, setMessages] = useState([
     { role: 'ai' as const, text: `Hi! I've loaded "${meetingTitle}". Ask me anything about this meeting.` },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [conversationId] = useState(() => crypto.randomUUID());
 
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
+    const promptMessageId = crypto.randomUUID();
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
     setLoading(true);
@@ -1023,6 +1025,16 @@ function AskAIPanel({ meetingTitle }: { meetingTitle: string }) {
       queryLength: userMsg.length,
       meetingTitle: meetingTitle.slice(0, 100),
     });
+
+    if (typeof pendo !== 'undefined') {
+      pendo.trackAgent("prompt", {
+        agentId: "pZmPY_FiDK8JD7Hbnt-NXhzR7_0",
+        conversationId,
+        messageId: promptMessageId,
+        content: userMsg,
+      });
+    }
+
     try {
       const apiKey = getSetting('OPENROUTER_API_KEY');
       const answer = await callOpenRouter(
@@ -1033,7 +1045,17 @@ function AskAIPanel({ meetingTitle }: { meetingTitle: string }) {
         ],
         'ask-ai',
       );
+      const responseMessageId = crypto.randomUUID();
       setMessages(prev => [...prev, { role: 'ai', text: answer }]);
+
+      if (typeof pendo !== 'undefined') {
+        pendo.trackAgent("agent_response", {
+          agentId: "pZmPY_FiDK8JD7Hbnt-NXhzR7_0",
+          conversationId,
+          messageId: responseMessageId,
+          content: answer,
+        });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${msg}` }]);
