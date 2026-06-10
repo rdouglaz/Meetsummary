@@ -529,16 +529,6 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', text, timestamp: Date.now() };
     setChatMessages(prev => [...prev, userMsg]);
     setIsChatLoading(true);
-
-    if (typeof pendo !== 'undefined') {
-      pendo.trackAgent("prompt", {
-        agentId: "rFslkhcC7MlMOLmhB17JW2pCoxA",
-        conversationId: sessionId ?? userMsg.id,
-        messageId: userMsg.id,
-        content: text,
-      });
-    }
-
     try {
       const apiKey = getSetting('OPENROUTER_API_KEY');
       if (!apiKey) throw new Error('OpenRouter API key not configured. Go to Settings → AI Services.');
@@ -554,24 +544,14 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
         ],
         'live-chat',
       );
-      const responseId = crypto.randomUUID();
-      setChatMessages(prev => [...prev, { id: responseId, role: 'ai', text: answer, timestamp: Date.now() }]);
-
-      if (typeof pendo !== 'undefined') {
-        pendo.trackAgent("agent_response", {
-          agentId: "rFslkhcC7MlMOLmhB17JW2pCoxA",
-          conversationId: sessionId ?? userMsg.id,
-          messageId: responseId,
-          content: answer,
-        });
-      }
+      setChatMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'ai', text: answer, timestamp: Date.now() }]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setChatMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'ai', text: `Error: ${msg}`, timestamp: Date.now() }]);
     } finally {
       setIsChatLoading(false);
     }
-  }, [sessionId]);
+  }, []);
 
   const approveEvent = (id: string) => {
     setAiEvents(prev => prev.map(e => e.id === id ? { ...e, approved: true } : e));
