@@ -159,6 +159,10 @@ export async function runUploadPipeline(
   const dgKey = getSetting('DEEPGRAM_API_KEY');
   if (!dgKey) {
     onUpdate({ stage: 'error', pct: 0, error: 'Deepgram API key not configured. Go to Settings → AI Services to add your key.' });
+    (window as any).pendo?.track('meeting_upload_failed', {
+      failedStage: 'extracting', errorMessage: 'Deepgram API key not configured',
+      source: opts.source, outputMode: opts.mode, fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+    });
     return;
   }
 
@@ -176,6 +180,10 @@ export async function runUploadPipeline(
     });
   } catch (err) {
     onUpdate({ stage: 'error', pct: 0, error: err instanceof Error ? err.message : 'Audio extraction failed' });
+    (window as any).pendo?.track('meeting_upload_failed', {
+      failedStage: 'extracting', errorMessage: (err instanceof Error ? err.message : 'Audio extraction failed').slice(0, 100),
+      source: opts.source, outputMode: opts.mode, fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+    });
     return;
   }
 
@@ -193,6 +201,10 @@ export async function runUploadPipeline(
     });
   } catch (err) {
     onUpdate({ stage: 'error', pct: 25, error: err instanceof Error ? err.message : 'Transcription failed' });
+    (window as any).pendo?.track('meeting_upload_failed', {
+      failedStage: 'transcribing', errorMessage: (err instanceof Error ? err.message : 'Transcription failed').slice(0, 100),
+      source: opts.source, outputMode: opts.mode, fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+    });
     return;
   }
 
@@ -264,21 +276,39 @@ export async function runUploadPipeline(
     });
   } catch (err) {
     onUpdate({ stage: 'error', pct: 90, error: `Failed to save results: ${err instanceof Error ? err.message : String(err)}` });
+    (window as any).pendo?.track('meeting_upload_failed', {
+      failedStage: 'saving', errorMessage: (err instanceof Error ? err.message : String(err)).slice(0, 100),
+      source: opts.source, outputMode: opts.mode, fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+    });
     return;
   }
 
   // ── Stage 5: Complete ──────────────────────────────────────────────────────
+  const completionStats = {
+    duration:       Math.round(dgResult.duration || audioResult.duration),
+    speakerCount:   dgResult.speakerCount,
+    originalSize:   audioResult.originalSize,
+    processedSize:  audioResult.processedSize,
+    compressionPct: Math.round((1 - audioResult.processedSize / audioResult.originalSize) * 100),
+  };
+
   onUpdate({
     stage:          'complete',
     pct:            100,
     meetingId,
     storageWarning,
-    stats: {
-      duration:       Math.round(dgResult.duration || audioResult.duration),
-      speakerCount:   dgResult.speakerCount,
-      originalSize:   audioResult.originalSize,
-      processedSize:  audioResult.processedSize,
-      compressionPct: Math.round((1 - audioResult.processedSize / audioResult.originalSize) * 100),
-    },
+    stats: completionStats,
+  });
+
+  // Pendo Track: meeting upload completed successfully
+  (window as any).pendo?.track('meeting_upload_completed', {
+    source:          opts.source,
+    outputMode:      opts.mode,
+    fileSizeMB:      parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+    durationSeconds: completionStats.duration,
+    speakerCount:    completionStats.speakerCount,
+    compressionPct:  completionStats.compressionPct,
+    hasAgenda:       (opts.agendaItems?.length ?? 0) > 0,
+    agendaItemCount: opts.agendaItems?.length ?? 0,
   });
 }

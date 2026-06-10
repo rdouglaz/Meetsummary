@@ -35,6 +35,13 @@ export async function syncToHubSpot(payload: CRMPayload): Promise<{ ok: boolean;
       const body = await res.json().catch(() => ({})) as { error?: string };
       return { ok: false, error: body.error ?? `HTTP ${res.status}` };
     }
+    // Pendo Track: CRM sync completed
+    (window as any).pendo?.track('crm_sync_completed', {
+      crmType: 'hubspot',
+      meetingTitle: payload.meetingTitle?.slice(0, 100),
+      actionItemCount: payload.actionItems?.length ?? 0,
+      contactLinked: !!payload.contactEmail,
+    });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Network error' };
@@ -67,6 +74,13 @@ export async function syncToSalesforce(payload: CRMPayload): Promise<{ ok: boole
       const body = await res.json().catch(() => ({})) as { error?: string };
       return { ok: false, error: body.error ?? `HTTP ${res.status}` };
     }
+    // Pendo Track: CRM sync completed
+    (window as any).pendo?.track('crm_sync_completed', {
+      crmType: 'salesforce',
+      meetingTitle: payload.meetingTitle?.slice(0, 100),
+      actionItemCount: payload.actionItems?.length ?? 0,
+      contactLinked: !!payload.contactEmail,
+    });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Network error' };
