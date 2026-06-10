@@ -56,6 +56,10 @@ function SecretInput({ label, placeholder, storageKey, hint }: {
     setSetting(storageKey, value.trim());
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    // Pendo Track: integration configured
+    (window as any).pendo?.track('integration_configured', {
+      integrationType: storageKey,
+    });
   };
 
   return (
@@ -100,6 +104,10 @@ function PlainInput({ label, placeholder, storageKey, hint }: {
     setSetting(storageKey, value.trim());
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    // Pendo Track: integration configured
+    (window as any).pendo?.track('integration_configured', {
+      integrationType: storageKey,
+    });
   };
 
   return (
@@ -257,6 +265,8 @@ function ComplianceSection() {
   const toggle = (v: boolean) => {
     setEnabled(v);
     setComplianceMode(v);
+    // Pendo Track: compliance mode toggled
+    (window as any).pendo?.track('compliance_mode_toggled', { enabled: v });
   };
 
   return (
@@ -317,6 +327,10 @@ function SpeakerProfilesSection() {
     setNewName('');
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+    // Pendo Track: speaker profile saved
+    (window as any).pendo?.track('speaker_profile_saved', {
+      profileCount: updated.length,
+    });
   };
 
   const remove = (label: string) => {

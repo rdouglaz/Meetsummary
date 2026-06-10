@@ -279,6 +279,12 @@ export function UploadPage({ onNavigate }: UploadPageProps) {
   const retryFile = useCallback((id: string) => {
     const item = uploads.find(u => u.id === id);
     if (!item) return;
+    // Pendo Track: user retried a failed upload
+    (window as any).pendo?.track('meeting_upload_retried', {
+      previousError: item.error?.slice(0, 100) ?? 'unknown',
+      source: selectedSource,
+      fileName: item.file.name,
+    });
     const reset: UploadedFile = { ...item, stage: 'extracting', pct: 0, error: undefined, detail: undefined };
     patch(id, { stage: 'extracting', pct: 0, error: undefined, detail: undefined });
     startPipeline(reset, selectedSource, selectedMode, agendaItems);

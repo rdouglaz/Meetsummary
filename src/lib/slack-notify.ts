@@ -36,6 +36,13 @@ async function relay(
       const body = await res.json().catch(() => ({})) as { error?: string };
       return { ok: false, error: body.error ?? `HTTP ${res.status}` };
     }
+    // Pendo Track: notification sent to Slack or Teams
+    (window as any).pendo?.track('slack_teams_notification_sent', {
+      platform,
+      meetingTitle: payload.meetingTitle?.slice(0, 100),
+      actionItemCount: payload.actionItems?.length ?? 0,
+      hasMeetingUrl: !!payload.meetingUrl,
+    });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Network error' };

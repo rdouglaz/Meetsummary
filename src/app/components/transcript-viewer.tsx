@@ -40,6 +40,18 @@ export function TranscriptViewer({ utterances, currentTime, onSeek }: Transcript
     search === '' || u.transcript.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Pendo Track: transcript search executed (debounced)
+  useEffect(() => {
+    if (!search.trim()) return;
+    const timer = setTimeout(() => {
+      (window as any).pendo?.track('transcript_search_executed', {
+        queryLength: search.length,
+        resultsCount: filteredUtterances.length,
+      });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (utterances.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">

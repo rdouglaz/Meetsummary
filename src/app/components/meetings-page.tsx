@@ -87,6 +87,12 @@ function MeetingCard({ meeting, onOpen, onDelete }: { meeting: MeetingRow; onOpe
       await supabase.from('meetings').delete().eq('id', meeting.id);
       onDelete();
       toast.success('Meeting deleted');
+      // Pendo Track: meeting deleted
+      (window as any).pendo?.track('meeting_deleted', {
+        meetingId: meeting.id,
+        storageType: meeting.file_url && isR2Key(meeting.file_url) ? 'r2' : 'supabase',
+        meetingTitle: meeting.title,
+      });
     } catch {
       setDeleting(false);
       toast.error('Failed to delete meeting');
@@ -96,7 +102,12 @@ function MeetingCard({ meeting, onOpen, onDelete }: { meeting: MeetingRow; onOpe
   const handleShare = () => {
     const url = `${window.location.origin}${window.location.pathname}?meeting=${meeting.id}`;
     navigator.clipboard.writeText(url)
-      .then(() => { setMenuOpen(false); toast.success('Link copied to clipboard'); })
+      .then(() => {
+        setMenuOpen(false);
+        toast.success('Link copied to clipboard');
+        // Pendo Track: meeting shared
+        (window as any).pendo?.track('meeting_shared', { meetingId: meeting.id });
+      })
       .catch(() => toast.error('Could not copy link'));
   };
 
@@ -255,6 +266,19 @@ export function MeetingsPage({ onNavigate }: MeetingsPageProps) {
     const matchFilter = filter === 'all' ? true : filter === 'complete' ? m.status === 'complete' : m.status !== 'complete';
     return matchSearch && matchFilter;
   });
+
+  // Pendo Track: meeting search executed (debounced)
+  useEffect(() => {
+    if (!search.trim()) return;
+    const timer = setTimeout(() => {
+      (window as any).pendo?.track('meeting_search_executed', {
+        searchQuery: search.slice(0, 100),
+        filterStatus: filter,
+        resultsCount: filtered.length,
+      });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [search, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col min-h-full">
