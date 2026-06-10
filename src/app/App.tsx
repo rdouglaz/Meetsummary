@@ -108,6 +108,65 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Pendo identify on sign-in ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!session) return;
+
+    const identifyUser = async () => {
+      const pendoPayload: Record<string, unknown> = {
+        visitor: {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          createdAt: session.user.created_at,
+        },
+      };
+
+      // Attempt to load account (org) metadata
+      const userId = session.user.id;
+      let org: { id: string; name: string; slug: string; plan: string; created_at: string } | null = null;
+
+      const { data: ownedOrgs } = await supabase
+        .from('organizations')
+        .select('id, name, slug, plan, created_at')
+        .eq('owner_id', userId)
+        .limit(1);
+
+      if (ownedOrgs && ownedOrgs.length > 0) {
+        org = ownedOrgs[0] as typeof org;
+      } else {
+        const { data: membership } = await supabase
+          .from('org_members')
+          .select('org_id')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .limit(1);
+
+        if (membership && membership.length > 0) {
+          const { data: memberOrg } = await supabase
+            .from('organizations')
+            .select('id, name, slug, plan, created_at')
+            .eq('id', membership[0].org_id)
+            .single();
+          if (memberOrg) org = memberOrg as typeof org;
+        }
+      }
+
+      if (org) {
+        pendoPayload.account = {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          plan: org.plan,
+          createdAt: org.created_at,
+        };
+      }
+
+      pendo.identify(pendoPayload);
+    };
+
+    identifyUser();
+  }, [session]);
+
   // ── Action items badge (only when authenticated) ──────────────────────────────
   useEffect(() => {
     if (!session) return;
@@ -141,6 +200,7 @@ export default function App() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    pendo.clearSession();
     setPage('dashboard');
     setPendingCount(0);
   };
