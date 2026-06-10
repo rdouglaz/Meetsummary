@@ -370,13 +370,6 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
             a.click();
             URL.revokeObjectURL(url);
             toast.success('Exported as text file');
-            // Pendo Track: download text file
-            (window as any).pendo?.track('download_text_file', {
-              meetingId: meeting.id,
-              meetingTitle: meeting.title.slice(0, 100),
-              hasTranscript: utterances.length > 0,
-              actionItemCount: exportItems.length,
-            });
           }}
         />
       )}
@@ -454,7 +447,7 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
                     )}
                   </TabsContent>
                   <TabsContent value="chat" className="flex-1 mt-0">
-                    <AskAIPanel meetingTitle={meeting.title} meetingId={meeting.id} />
+                    <AskAIPanel meetingTitle={meeting.title} />
                   </TabsContent>
                 </Tabs>
               </div>
@@ -530,7 +523,7 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
                   )}
                 </TabsContent>
                 <TabsContent value="chat" className="flex-1 mt-0">
-                  <AskAIPanel meetingTitle={meeting.title} meetingId={meeting.id} />
+                  <AskAIPanel meetingTitle={meeting.title} />
                 </TabsContent>
               </Tabs>
             </div>
@@ -625,11 +618,6 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
                               await supabase.from('meetings').update({ agenda_items: agendaDraft }).eq('id', meetingId);
                               setAgendaItems(agendaDraft);
                               setEditingAgenda(false);
-                              // Pendo Track: meeting agenda saved
-                              (window as any).pendo?.track('meeting_agenda_saved', {
-                                meetingId,
-                                agendaItemCount: agendaDraft.length,
-                              });
                             } finally {
                               setSavingAgenda(false);
                             }
@@ -720,32 +708,13 @@ function ExportHubModal({
       if (res.ok) {
         setStatus(key, 'ok');
         logAudit('export', 'meeting', undefined, { destination: key, meetingTitle }).catch(() => {});
-        // Pendo Track: meeting exported
-        (window as any).pendo?.track('meeting_exported', {
-          destination: key,
-          meetingTitle: meetingTitle.slice(0, 100),
-          itemCount: items.length,
-        });
       } else {
         setStatus(key, 'error');
         setError(key, res.error ?? 'Unknown error');
-        // Pendo Track: meeting export failed
-        (window as any).pendo?.track('meeting_export_failed', {
-          destination: key,
-          meetingTitle: meetingTitle.slice(0, 100),
-          errorMessage: (res.error ?? 'Unknown error').slice(0, 100),
-        });
       }
     } catch (err) {
       setStatus(key, 'error');
-      const errMsg = err instanceof Error ? err.message : String(err);
-      setError(key, errMsg);
-      // Pendo Track: meeting export failed
-      (window as any).pendo?.track('meeting_export_failed', {
-        destination: key,
-        meetingTitle: meetingTitle.slice(0, 100),
-        errorMessage: errMsg.slice(0, 100),
-      });
+      setError(key, err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -1005,36 +974,19 @@ function EmptySummary({ status }: { status: string }) {
   );
 }
 
-function AskAIPanel({ meetingTitle, meetingId }: { meetingTitle: string; meetingId: string }) {
+function AskAIPanel({ meetingTitle }: { meetingTitle: string }) {
   const [messages, setMessages] = useState([
     { role: 'ai' as const, text: `Hi! I've loaded "${meetingTitle}". Ask me anything about this meeting.` },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [conversationId] = useState(() => crypto.randomUUID());
 
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
-    const promptMessageId = crypto.randomUUID();
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
     setLoading(true);
-    // Pendo Track: ask AI question asked
-    (window as any).pendo?.track('ask_ai_question_asked', {
-      queryLength: userMsg.length,
-      meetingTitle: meetingTitle.slice(0, 100),
-    });
-
-    if (typeof pendo !== 'undefined') {
-      pendo.trackAgent("prompt", {
-        agentId: "pZmPY_FiDK8JD7Hbnt-NXhzR7_0",
-        conversationId,
-        messageId: promptMessageId,
-        content: userMsg,
-      });
-    }
-
     try {
       const apiKey = getSetting('OPENROUTER_API_KEY');
       const answer = await callOpenRouter(
@@ -1045,17 +997,7 @@ function AskAIPanel({ meetingTitle, meetingId }: { meetingTitle: string; meeting
         ],
         'ask-ai',
       );
-      const responseMessageId = crypto.randomUUID();
       setMessages(prev => [...prev, { role: 'ai', text: answer }]);
-
-      if (typeof pendo !== 'undefined') {
-        pendo.trackAgent("agent_response", {
-          agentId: "pZmPY_FiDK8JD7Hbnt-NXhzR7_0",
-          conversationId,
-          messageId: responseMessageId,
-          content: answer,
-        });
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setMessages(prev => [...prev, { role: 'ai', text: `⚠️ ${msg}` }]);

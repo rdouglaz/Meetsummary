@@ -49,13 +49,6 @@ export function EmailDraftModal({
         'email-draft',
       );
       setBody(draft.trim());
-      // Pendo Track: email draft generated
-      (window as any).pendo?.track('email_draft_generated', {
-        meetingTitle: meetingTitle.slice(0, 100),
-        hasParticipants: participants.length > 0,
-        hasActionItems: actionItems.length > 0,
-        hasDecisions: decisions.length > 0,
-      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       throw new Error(msg);
@@ -81,12 +74,6 @@ export function EmailDraftModal({
     const to = recipients.split(',').map(e => e.trim()).filter(Boolean).join(',');
     const url = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(url, '_blank');
-    // Pendo Track: email draft sent via mailto
-    (window as any).pendo?.track('email_draft_sent', {
-      meetingTitle: meetingTitle.slice(0, 100),
-      recipientCount: to.split(',').filter(Boolean).length,
-      hasCustomEdits: body !== '',
-    });
   };
 
   return (

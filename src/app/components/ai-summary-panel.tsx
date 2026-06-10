@@ -98,8 +98,6 @@ export function AISummaryPanel({ summary, mode, onModeChange }: AISummaryPanelPr
     navigator.clipboard.writeText(buildSummaryText(summary, mode)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      // Pendo Track: summary copied
-      (window as any).pendo?.track('summary_copied', { summaryMode: mode });
     });
   };
 
@@ -115,8 +113,6 @@ export function AISummaryPanel({ summary, mode, onModeChange }: AISummaryPanelPr
     win.document.close();
     win.focus();
     win.print();
-    // Pendo Track: summary exported as HTML
-    (window as any).pendo?.track('summary_exported_html', { summaryMode: mode });
   };
 
   return (

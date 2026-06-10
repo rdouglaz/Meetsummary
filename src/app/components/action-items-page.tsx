@@ -163,16 +163,8 @@ export function ActionItemsPage({ onNavigate }: ActionItemsPageProps) {
   }, []);
 
   const handleStatusChange = async (id: string, status: StatusType) => {
-    const current = items.find(i => i.id === id);
     setItems(prev => prev.map(i => i.id === id ? { ...i, status } : i));
     await updateActionItemStatus(id, status);
-    // Pendo Track: action item status changed
-    (window as any).pendo?.track('action_item_status_changed', {
-      actionItemId: id,
-      newStatus: status,
-      previousStatus: current?.status ?? 'unknown',
-      meetingId: current?.meeting_id ?? undefined,
-    });
   };
 
   const handleExport = async (type: 'csv' | 'notion' | 'clickup' | 'sheets') => {
@@ -184,12 +176,6 @@ export function ActionItemsPage({ onNavigate }: ActionItemsPageProps) {
       if (type === 'notion')  await exportToNotion(exportItems, title);
       if (type === 'clickup') await exportToClickUp(exportItems, title);
       if (type === 'sheets')  await exportToGoogleSheets(exportItems, title);
-      // Pendo Track: action items bulk exported
-      (window as any).pendo?.track('action_items_bulk_exported', {
-        exportType: type,
-        itemCount: exportItems.length,
-        filteredByStatus: filter !== 'all' ? filter : undefined,
-      });
     } finally { setExporting(false); }
   };
 

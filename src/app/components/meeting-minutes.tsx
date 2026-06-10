@@ -69,14 +69,6 @@ export function MeetingMinutes({ meeting, summary, actionItems, chunks, speakerM
     document.title = `${meeting.title} — Meeting Minutes`;
     window.print();
     document.title = prev;
-    // Pendo Track: meeting minutes exported as PDF
-    (window as any).pendo?.track('meeting_minutes_exported', {
-      meetingId: meeting.id,
-      meetingTitle: meeting.title?.slice(0, 100),
-      hasTranscript: chunks.length > 0,
-      hasActionItems: actionItems.length > 0,
-      hasRisks: risks.length > 0,
-    });
   };
 
   return (

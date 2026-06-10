@@ -7,6 +7,7 @@ import { Card, CardContent } from './ui/card';
 import { NavPage } from '../types';
 import { runUploadPipeline } from '../../lib/upload-pipeline';
 import type { PipelineUpdate, PipelineStage } from '../../lib/upload-pipeline';
+import { trackEvent } from '../../lib/pendo';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -253,6 +254,7 @@ export function UploadPage({ onNavigate }: UploadPageProps) {
         });
         // Navigate to meetings immediately when complete so the row is visible
         if (update.stage === 'complete' && update.meetingId) {
+          trackEvent('meeting_uploaded', { meetingId: update.meetingId, durationSecs: update.stats?.duration });
           setTimeout(() => onNavigate('meetings'), 800);
         }
       },
@@ -279,12 +281,6 @@ export function UploadPage({ onNavigate }: UploadPageProps) {
   const retryFile = useCallback((id: string) => {
     const item = uploads.find(u => u.id === id);
     if (!item) return;
-    // Pendo Track: user retried a failed upload
-    (window as any).pendo?.track('meeting_upload_retried', {
-      previousError: item.error?.slice(0, 100) ?? 'unknown',
-      source: selectedSource,
-      fileName: item.file.name,
-    });
     const reset: UploadedFile = { ...item, stage: 'extracting', pct: 0, error: undefined, detail: undefined };
     patch(id, { stage: 'extracting', pct: 0, error: undefined, detail: undefined });
     startPipeline(reset, selectedSource, selectedMode, agendaItems);

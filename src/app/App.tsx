@@ -16,6 +16,7 @@ import { AnalyticsPage } from './components/analytics-page';
 import { TeamPage } from './components/team-page';
 import { Toaster } from './components/ui/sonner';
 import { supabase } from '../lib/supabase';
+import { loadPendo, identifyPendo } from '../lib/pendo';
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -80,6 +81,9 @@ export default function App() {
   // ── Favicon ─────────────────────────────────────────────────────────────────
   useEffect(() => { injectFavicon(); }, []);
 
+  // ── Pendo ────────────────────────────────────────────────────────────────────
+  useEffect(() => { loadPendo(); }, []);
+
   // ── Deep-link: ?meeting=<id> shared from the Share button ───────────────────
   useEffect(() => {
     const params    = new URLSearchParams(window.location.search);
@@ -96,76 +100,30 @@ export default function App() {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
 
-  // ── Auth ─────────────────────────────────────────────────────────────────────
+  // ── Auth + Pendo identification ───────────────────────────────────────────────
   useEffect(() => {
+    const identify = (s: Session | null) => {
+      const u = s?.user;
+      identifyPendo({
+        userId:    u?.id    ?? null,
+        email:     u?.email ?? null,
+        fullName:  (u?.user_metadata?.full_name as string | undefined) ?? null,
+        createdAt: u?.created_at ?? null,
+        orgId:     (u?.user_metadata?.org_id  as string | undefined) ?? null,
+        orgName:   (u?.user_metadata?.org_name as string | undefined) ?? null,
+      });
+    };
+
     supabase.auth.getSession()
-      .then(({ data }) => setSession(data.session))
+      .then(({ data }) => { setSession(data.session); identify(data.session); })
       .catch(() => setSession(null));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      identify(s);
     });
     return () => subscription.unsubscribe();
   }, []);
-
-  // ── Pendo identify on sign-in ───────────────────────────────────────────────
-  useEffect(() => {
-    if (!session) return;
-
-    const identifyUser = async () => {
-      const pendoPayload: Record<string, unknown> = {
-        visitor: {
-          id: session.user.id,
-          email: session.user.email ?? '',
-          createdAt: session.user.created_at,
-        },
-      };
-
-      // Attempt to load account (org) metadata
-      const userId = session.user.id;
-      let org: { id: string; name: string; slug: string; plan: string; created_at: string } | null = null;
-
-      const { data: ownedOrgs } = await supabase
-        .from('organizations')
-        .select('id, name, slug, plan, created_at')
-        .eq('owner_id', userId)
-        .limit(1);
-
-      if (ownedOrgs && ownedOrgs.length > 0) {
-        org = ownedOrgs[0] as typeof org;
-      } else {
-        const { data: membership } = await supabase
-          .from('org_members')
-          .select('org_id')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-          .limit(1);
-
-        if (membership && membership.length > 0) {
-          const { data: memberOrg } = await supabase
-            .from('organizations')
-            .select('id, name, slug, plan, created_at')
-            .eq('id', membership[0].org_id)
-            .single();
-          if (memberOrg) org = memberOrg as typeof org;
-        }
-      }
-
-      if (org) {
-        pendoPayload.account = {
-          id: org.id,
-          name: org.name,
-          slug: org.slug,
-          plan: org.plan,
-          createdAt: org.created_at,
-        };
-      }
-
-      pendo.identify(pendoPayload);
-    };
-
-    identifyUser();
-  }, [session]);
 
   // ── Action items badge (only when authenticated) ──────────────────────────────
   useEffect(() => {
@@ -200,7 +158,6 @@ export default function App() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    pendo.clearSession();
     setPage('dashboard');
     setPendingCount(0);
   };

@@ -36,8 +36,6 @@ export function AuthPage() {
           password,
         });
         if (err) throw err;
-        // Pendo Track: user signed in
-        (window as any).pendo?.track('user_signed_in', { authMethod: 'email' });
         // onAuthStateChange in App.tsx handles the redirect
 
       } else if (mode === 'signup') {
@@ -46,8 +44,6 @@ export function AuthPage() {
           password,
         });
         if (err) throw err;
-        // Pendo Track: user signed up
-        (window as any).pendo?.track('user_signed_up', { authMethod: 'email' });
         setSentEmail(trimmedEmail);
         setEmailSentFor('signup');
 
@@ -56,8 +52,6 @@ export function AuthPage() {
           redirectTo: window.location.origin,
         });
         if (err) throw err;
-        // Pendo Track: password reset requested
-        (window as any).pendo?.track('password_reset_requested');
         setSentEmail(trimmedEmail);
         setEmailSentFor('forgot');
       }
