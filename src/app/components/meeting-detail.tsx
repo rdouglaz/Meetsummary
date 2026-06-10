@@ -370,6 +370,13 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
             a.click();
             URL.revokeObjectURL(url);
             toast.success('Exported as text file');
+            // Pendo Track: download text file
+            (window as any).pendo?.track('download_text_file', {
+              meetingId: meeting.id,
+              meetingTitle: meeting.title.slice(0, 100),
+              hasTranscript: utterances.length > 0,
+              actionItemCount: exportItems.length,
+            });
           }}
         />
       )}
@@ -618,6 +625,11 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
                               await supabase.from('meetings').update({ agenda_items: agendaDraft }).eq('id', meetingId);
                               setAgendaItems(agendaDraft);
                               setEditingAgenda(false);
+                              // Pendo Track: meeting agenda saved
+                              (window as any).pendo?.track('meeting_agenda_saved', {
+                                meetingId,
+                                agendaItemCount: agendaDraft.length,
+                              });
                             } finally {
                               setSavingAgenda(false);
                             }
@@ -708,13 +720,32 @@ function ExportHubModal({
       if (res.ok) {
         setStatus(key, 'ok');
         logAudit('export', 'meeting', undefined, { destination: key, meetingTitle }).catch(() => {});
+        // Pendo Track: meeting exported
+        (window as any).pendo?.track('meeting_exported', {
+          destination: key,
+          meetingTitle: meetingTitle.slice(0, 100),
+          itemCount: items.length,
+        });
       } else {
         setStatus(key, 'error');
         setError(key, res.error ?? 'Unknown error');
+        // Pendo Track: meeting export failed
+        (window as any).pendo?.track('meeting_export_failed', {
+          destination: key,
+          meetingTitle: meetingTitle.slice(0, 100),
+          errorMessage: (res.error ?? 'Unknown error').slice(0, 100),
+        });
       }
     } catch (err) {
       setStatus(key, 'error');
-      setError(key, err instanceof Error ? err.message : String(err));
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setError(key, errMsg);
+      // Pendo Track: meeting export failed
+      (window as any).pendo?.track('meeting_export_failed', {
+        destination: key,
+        meetingTitle: meetingTitle.slice(0, 100),
+        errorMessage: errMsg.slice(0, 100),
+      });
     }
   };
 
@@ -989,6 +1020,11 @@ function AskAIPanel({ meetingTitle, meetingId }: { meetingTitle: string; meeting
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
     setLoading(true);
+    // Pendo Track: ask AI question asked
+    (window as any).pendo?.track('ask_ai_question_asked', {
+      queryLength: userMsg.length,
+      meetingTitle: meetingTitle.slice(0, 100),
+    });
 
     if (typeof pendo !== 'undefined') {
       pendo.trackAgent("prompt", {

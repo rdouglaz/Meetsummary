@@ -137,6 +137,11 @@ export function TeamPage({ onNavigate }: TeamPageProps) {
       setOrg(newOrg as Org);
       setIsOwner(true);
       await loadMembers(newOrg.id);
+      // Pendo Track: organization created
+      (window as any).pendo?.track('organization_created', {
+        orgName: orgName.trim().slice(0, 100),
+        ownerId: user.id,
+      });
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create organization');
     } finally {
@@ -166,6 +171,12 @@ export function TeamPage({ onNavigate }: TeamPageProps) {
       setInviteMsg({ ok: true, text: `Invite sent to ${email}` });
       setInviteEmail('');
       await loadMembers(org.id);
+      // Pendo Track: team member invited
+      (window as any).pendo?.track('team_member_invited', {
+        orgId: org.id,
+        inviteeRole: inviteRole,
+        invitedBy: user?.id ?? 'unknown',
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Invite failed';
       setInviteMsg({ ok: false, text: msg.includes('unique') ? 'This person is already in your organization' : msg });
@@ -177,11 +188,22 @@ export function TeamPage({ onNavigate }: TeamPageProps) {
   async function removeMember(memberId: string) {
     await supabase.from('org_members').update({ status: 'removed' }).eq('id', memberId);
     await loadMembers(org!.id);
+    // Pendo Track: team member removed
+    (window as any).pendo?.track('team_member_removed', {
+      orgId: org!.id,
+      removedMemberId: memberId,
+      removedByUserId: currentUserId ?? 'unknown',
+    });
   }
 
   async function leaveOrg() {
     if (!org || !currentUserId) return;
     await supabase.from('org_members').update({ status: 'removed' }).eq('org_id', org.id).eq('user_id', currentUserId);
+    // Pendo Track: user left organization
+    (window as any).pendo?.track('user_left_organization', {
+      orgId: org.id,
+      userId: currentUserId,
+    });
     setOrg(null);
     setMembers([]);
   }

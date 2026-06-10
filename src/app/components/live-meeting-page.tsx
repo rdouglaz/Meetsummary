@@ -232,6 +232,16 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
           parsed.actionItems.map(ai => ({ meeting_id: mId, task: ai.task, owner: ai.owner, due_date: ai.dueDate, status: 'pending' as const })),
         );
       }
+
+      // Pendo Track: AI summary generated
+      (window as any).pendo?.track('ai_summary_generated', {
+        meetingId: mId,
+        actionItemsExtracted: parsed.actionItems?.length ?? 0,
+        keyDecisionsCount: parsed.keyDecisions?.length ?? 0,
+        risksCount: parsed.risks?.length ?? 0,
+        hasFollowUpEmail: !!parsed.followUpEmail,
+        summaryMode: 'short',
+      });
     } catch {
       // Non-fatal — transcript already saved
     }
@@ -336,6 +346,18 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
     setSessionId(session.id);
     setMeetingId(meeting.id);
     setupRealtimeSubscriptions(session.id);
+
+    // Pendo Track: live session started
+    (window as any).pendo?.track('live_session_started', {
+      source,
+      diarization: liveSettings.diarization ?? true,
+      smartFormat: liveSettings.smartFormat ?? true,
+      interimResults: liveSettings.interimResults ?? true,
+      language: liveSettings.language ?? 'auto',
+      outputMode: liveSettings.outputMode ?? 'short',
+      hasAgenda: (liveSettings.agendaItems?.length ?? 0) > 0,
+      agendaItemCount: liveSettings.agendaItems?.length ?? 0,
+    });
 
     // Start Deepgram WebSocket if we have a mic stream
     if (stream) {
@@ -450,6 +472,12 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
       dgClientRef.current?.pause();
       if (sessionId) await pauseLiveSession(sessionId);
       setPhase('paused');
+      // Pendo Track: live session paused
+      (window as any).pendo?.track('live_session_paused', {
+        elapsedSeconds: elapsed,
+        utteranceCount: utterances.length,
+        meetingId: meetingId ?? undefined,
+      });
       if (meetingId) triggerLLMSummary(meetingId);
     } else if (phase === 'paused') {
       dgClientRef.current?.resume();
@@ -463,6 +491,12 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
     if (meetingId && sessionId) {
       saveAIEvent({ type: 'important', content: `Key moment manually marked at ${formatTimer(elapsed)}`, meeting_id: meetingId, session_id: sessionId, confidence: 1 });
     }
+    // Pendo Track: important moment marked
+    (window as any).pendo?.track('important_moment_marked', {
+      meetingId: meetingId ?? undefined,
+      sessionId: sessionId ?? undefined,
+      elapsedSeconds: elapsed,
+    });
   };
 
   const endMeeting = async () => {
@@ -506,6 +540,19 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
         await Promise.all([generateFinalSummary(meetingId, utterances), uploadPromise]);
         await endLiveSession(sessionId, meetingId, elapsed, fileUrl);
         updateSuccess = true;
+
+        // Pendo Track: live session ended
+        const approvedCount = aiEvents.filter(e => e.approved === true).length;
+        const dismissedCount = aiEvents.filter(e => e.approved === false).length;
+        (window as any).pendo?.track('live_session_ended', {
+          durationSeconds: elapsed,
+          utteranceCount: utterances.length,
+          aiEventsCount: aiEvents.length,
+          approvedEventsCount: approvedCount,
+          dismissedEventsCount: dismissedCount,
+          source: 'browser',
+          hasFinalSummary: true,
+        });
         console.log(`[endMeeting] Successfully finalized meeting ${meetingId}`);
       } catch (err) {
         console.error('[endMeeting] Failed to finalize meeting:', err);
@@ -529,6 +576,12 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', text, timestamp: Date.now() };
     setChatMessages(prev => [...prev, userMsg]);
     setIsChatLoading(true);
+    // Pendo Track: live chat question asked
+    (window as any).pendo?.track('live_chat_question_asked', {
+      meetingId: meetingId ?? undefined,
+      queryLength: text.length,
+      transcriptLengthChars: transcriptBufferRef.current.length,
+    });
 
     if (typeof pendo !== 'undefined') {
       pendo.trackAgent("prompt", {
@@ -574,12 +627,28 @@ export function LiveMeetingPage({ onNavigate }: LiveMeetingPageProps) {
   }, [sessionId]);
 
   const approveEvent = (id: string) => {
+    const event = aiEvents.find(e => e.id === id);
     setAiEvents(prev => prev.map(e => e.id === id ? { ...e, approved: true } : e));
     supabase.from('ai_events').update({ approved: true }).eq('id', id).then(() => {});
+    // Pendo Track: AI event approved
+    (window as any).pendo?.track('ai_event_approved', {
+      eventType: event?.type ?? 'unknown',
+      confidence: event?.confidence ?? 0,
+      meetingId: meetingId ?? undefined,
+      sessionId: sessionId ?? undefined,
+    });
   };
   const dismissEvent = (id: string) => {
+    const event = aiEvents.find(e => e.id === id);
     setAiEvents(prev => prev.map(e => e.id === id ? { ...e, approved: false } : e));
     supabase.from('ai_events').update({ approved: false }).eq('id', id).then(() => {});
+    // Pendo Track: AI event dismissed
+    (window as any).pendo?.track('ai_event_dismissed', {
+      eventType: event?.type ?? 'unknown',
+      confidence: event?.confidence ?? 0,
+      meetingId: meetingId ?? undefined,
+      sessionId: sessionId ?? undefined,
+    });
   };
 
   // ── Setup ──────────────────────────────────────────────────────────────────
