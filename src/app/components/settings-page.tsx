@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Mic, Bell, Shield, Link2, FileSpreadsheet, BookOpen, SquareCheck, Check, Eye, EyeOff, Cpu, AlertTriangle, Trash2, RefreshCw, ChevronDown, ChevronUp, Globe, MessageSquare, Mail, Users, Plus, UserMinus } from 'lucide-react';
+import { Mic, Bell, Shield, Link2, FileSpreadsheet, BookOpen, SquareCheck, Check, Eye, EyeOff, Cpu, AlertTriangle, Trash2, RefreshCw, ChevronDown, ChevronUp, Globe, MessageSquare, Mail, Users, Plus, UserMinus, ExternalLink, FlaskConical } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -412,6 +412,20 @@ export function SettingsPage() {
           iconColor="text-violet-600 dark:text-violet-400"
         >
           <div className="flex flex-col gap-5">
+            <a
+              href="https://docs.google.com/document/d/1fcMG66mWMCRjPfgfAL0Sxx_KGsLcKwUs_SRYPhJC1Co/edit?usp=drivesdk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors group"
+            >
+              <FlaskConical className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-amber-800 dark:text-amber-300">Just evaluating? Use our test API keys</p>
+                <p className="text-[12px] text-amber-700 dark:text-amber-400 mt-0.5">Click to open the test key doc — copy the Deepgram and OpenRouter keys, paste them below, and the full app is unlocked.</p>
+              </div>
+              <ExternalLink className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </a>
+            <Separator />
             <div className="flex flex-col gap-3">
               <p className="text-[13px] font-semibold text-foreground">Deepgram</p>
               <SecretInput
