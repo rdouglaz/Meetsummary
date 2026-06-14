@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Share2, Download, FileText, Sparkles, Tag, Loader2, AlertCircle,
@@ -111,6 +111,13 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
   const [agendaDraft, setAgendaDraft] = useState<string[]>([]);
   const [agendaInput, setAgendaInput] = useState('');
   const [savingAgenda, setSavingAgenda] = useState(false);
+
+  const handleParticipantsChange = useCallback(async (names: string[]) => {
+    if (!summary) return;
+    const overview = { ...(summary.overview as Record<string, unknown>), participants: names };
+    setSummary(prev => prev ? { ...prev, overview } : prev);
+    await supabase.from('summaries').update({ overview }).eq('id', summary.id);
+  }, [summary]);
   const agendaInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -475,7 +482,7 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
               </div>
               {detailView === 'summary' ? (
                 summaryForPanel ? (
-                  <AISummaryPanel summary={summaryForPanel} mode={summaryMode} onModeChange={setSummaryMode} />
+                  <AISummaryPanel summary={summaryForPanel} mode={summaryMode} onModeChange={setSummaryMode} onParticipantsChange={handleParticipantsChange} />
                 ) : (
                   <EmptySummary status={meeting.status} />
                 )
@@ -657,7 +664,7 @@ export function MeetingDetail({ meetingId, onNavigate }: MeetingDetailProps) {
               {detailView === 'summary' ? (
                 <div className="px-4 pb-5">
                   {summaryForPanel ? (
-                    <AISummaryPanel summary={summaryForPanel} mode={summaryMode} onModeChange={setSummaryMode} />
+                    <AISummaryPanel summary={summaryForPanel} mode={summaryMode} onModeChange={setSummaryMode} onParticipantsChange={handleParticipantsChange} />
                   ) : (
                     <EmptySummary status={meeting.status} />
                   )}

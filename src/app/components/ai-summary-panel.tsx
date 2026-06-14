@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Calendar, Users, Target, CheckCircle2, AlertTriangle, Mail, ListChecks, Copy, Check, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar, Users, Target, CheckCircle2, AlertTriangle, Mail, ListChecks, Copy, Check, Download, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { MeetingSummary, ActionItemStatus } from '../types';
@@ -51,6 +51,58 @@ interface AISummaryPanelProps {
   summary: MeetingSummary;
   mode: 'short' | 'client';
   onModeChange: (mode: 'short' | 'client') => void;
+  onParticipantsChange?: (names: string[]) => void;
+}
+
+function EditableParticipant({ name, onRename }: { name: string; onRename: (n: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState(name);
+  const inputRef              = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setDraft(name); }, [name]);
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  const commit = () => {
+    const val = draft.trim();
+    if (val && val !== name) onRename(val); else setDraft(name);
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex items-center gap-2 group">
+      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+        <span className="text-[9px] font-bold text-primary-foreground">
+          {(editing ? draft : name).charAt(0).toUpperCase()}
+        </span>
+      </div>
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { setDraft(name); setEditing(false); }
+          }}
+          className="text-[12px] text-foreground bg-transparent border-b border-primary/60 focus:outline-none flex-1 min-w-0"
+        />
+      ) : (
+        <span
+          className="text-[12px] text-foreground flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
+          onClick={() => setEditing(true)}
+        >
+          {name}
+        </span>
+      )}
+      {!editing && (
+        <Pencil
+          className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-primary flex-shrink-0"
+          onClick={() => setEditing(true)}
+        />
+      )}
+    </div>
+  );
 }
 
 const statusColors: Record<ActionItemStatus, string> = {
@@ -90,9 +142,18 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function AISummaryPanel({ summary, mode, onModeChange }: AISummaryPanelProps) {
+export function AISummaryPanel({ summary, mode, onModeChange, onParticipantsChange }: AISummaryPanelProps) {
   const [emailExpanded, setEmailExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied]               = useState(false);
+  const [participants, setParticipants]   = useState(summary.overview.participants);
+
+  useEffect(() => { setParticipants(summary.overview.participants); }, [summary.overview.participants]);
+
+  const handleRename = (index: number, newName: string) => {
+    const updated = participants.map((p, i) => i === index ? newName : p);
+    setParticipants(updated);
+    onParticipantsChange?.(updated);
+  };
 
   const handleCopyAll = () => {
     navigator.clipboard.writeText(buildSummaryText(summary, mode)).then(() => {
@@ -174,14 +235,9 @@ export function AISummaryPanel({ summary, mode, onModeChange }: AISummaryPanelPr
         </div>
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-[10px] text-muted-foreground mb-1.5">Participants</div>
-          <div className="flex flex-col gap-1">
-            {summary.overview.participants.map((p, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <span className="text-[9px] font-bold text-primary-foreground">{p.charAt(0)}</span>
-                </div>
-                <span className="text-[12px] text-foreground">{p}</span>
-              </div>
+          <div className="flex flex-col gap-1.5">
+            {participants.map((p, i) => (
+              <EditableParticipant key={i} name={p} onRename={newName => handleRename(i, newName)} />
             ))}
           </div>
         </div>
